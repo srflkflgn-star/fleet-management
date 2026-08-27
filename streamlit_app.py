@@ -1,151 +1,108 @@
-import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
+import os
+import pandas as pd
+import streamlit as st
+
+# ገጹ በስልክም ሆነ በኮምፒውተር እንዲመች ማድረግ
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="የስምሪት እና የፍሊት ማኔጅመንት",
+    page_icon="🚛",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# የዳታቤዝ ፋይል ስም (መረጃዎችን በኤክሰል/CSV መልክ ያስቀምጣል)
+DATA_FILE = "dispatch_data.csv"
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# ፋይሉ ከሌለ አዲስ መፍጠሪያ
+if not os.path.exists(DATA_FILE):
+    initial_data = pd.DataFrame(
+        columns=[
+            "የመኪና ሰሌዳ",
+            "የአሽከርካሪ ስም",
+            "የተነሳበትና መድረሻ",
+            "ካርጎ",
+            "ነዳጅ (ሊትር)",
+            "ሁኔታ",
+        ]
+    )
+    initial_data.to_csv(DATA_FILE, index=False)
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+def load_data():
+    return pd.read_csv(DATA_FILE)
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
+def save_data(df):
+    df.to_csv(DATA_FILE, index=False)
+
+
+# ዋና ርዕስ
+st.title("🚛 የዕለታዊ የስምሪት መከታተያ ዳሽቦርድ")
+st.write("በስልክ እና በኮምፒውተር በቀላሉ የሚሰራ የፍሊት ማኔጅመንት አፕሊኬሽን")
+
+# Sidebar - አዲስ ስምሪት መመዝገቢያ
+st.sidebar.header("📝 አዲስ ስምሪት መዝግብ")
+with st.sidebar.form("dispatch_form", clear_on_submit=True):
+    plate_no = st.text_input("የመኪና ሰሌዳ ቁጥር (e.g. AA 3-12345)")
+    driver_name = st.text_input("የአሽከርካሪ ስም")
+    route = st.text_input("የተነሳበትና መድረሻ (e.g. አዲስ አበባ ➔ ጂቡቲ)")
+    cargo = st.text_input("የካርጎ ዓይነት (e.g. ቡቲ 25 ቶን)")
+    fuel = st.number_input("የተሰጠ ነዳጅ (በሊትር)", min_value=0, value=100)
+    status = st.selectbox(
+        "የስምሪት ሁኔታ",
+        [
+            "መንገድ ላይ (In Transit)",
+            "ዝግጁ (Available)",
+            "ጥገና ላይ (Maintenance)",
+        ],
     )
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    submitted = st.form_submit_button("💾 ስምሪት መዝግብ")
 
-    return gdp_df
+    if submitted and plate_no and driver_name:
+        df = load_data()
+        new_row = {
+            "የመኪና ሰሌዳ": plate_no,
+            "የአሽከርካሪ ስም": driver_name,
+            "የተነሳበትና መድረሻ": route,
+            "ካርጎ": cargo,
+            "ነዳጅ (ሊትር)": fuel,
+            "ሁኔታ": status,
+        }
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        save_data(df)
+        st.success("መረጃው በስኬት ተመዝግቧል!")
 
-gdp_df = get_gdp_data()
+# መረጃዎችን ማሳያ
+df_data = load_data()
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
+# የቁጥር ማጠቃለያ (Metrics)
+col1, col2, col3, col4 = st.columns(4)
+in_transit = len(
+    df_data[df_data["ሁኔታ"] == "መንገድ ላይ (In Transit)"]
 )
+available = len(df_data[df_data["ሁኔታ"] == "ዝግጁ (Available)"])
+maintenance = len(df_data[df_data["ሁኔታ"] == "ጥገና ላይ (Maintenance)"])
+total_fuel = df_data["ነዳጅ (ሊትር)"].sum() if not df_data.empty else 0
 
-''
-''
+col1.metric("መንገድ ላይ ያሉ", f"{in_transit} መኪኖች")
+col2.metric("ዝግጁ የሆኑ", f"{available} መኪኖች")
+col3.metric("ጥገና ላይ ያሉ", f"{maintenance} መኪኖች")
+col4.metric("ጠቅላላ የተሰጠ ነዳጅ", f"{total_fuel} ሊትር")
 
+st.divider()
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+# የዳታ ሰንጠረዥ ማሳያ
+st.subheader("📋 የተመዘገቡ የስምሪት መረጃዎች")
+st.dataframe(df_data, use_container_width=True)
 
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+# በኤክሰል ማውረጃ (Export to Excel/CSV)
+if not df_data.empty:
+    csv = df_data.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 መረጃዎችን በ Excel (CSV) አውርድ",
+        data=csv,
+        file_name="dispatch_report.csv",
+        mime="text/csv",
+    )
