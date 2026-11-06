@@ -17,6 +17,7 @@ DATA_FILE = "dispatch_data.csv"
 if not os.path.exists(DATA_FILE):
     initial_data = pd.DataFrame(
         columns=[
+            "ወር",
             "የአሽከርካሪው ስም",
             "የመኪና ሰሌዳ",
             "የተነሳበትና መድረሻ",
@@ -57,7 +58,15 @@ if not df.empty:
 # --- 2. አዲስ መረጃ ማስገቢያ ፎርም (Sidebar Form) ---
 st.sidebar.header("➕ አዲስ ስምሪት መዝግብ")
 
+# የኢትዮጵያ ወራት ዝርዝር
+ethiopian_months = [
+    "መስከረም", "ጥቅምት", "ህዳር", "ታህሳስ", 
+    "ጥር", "የካቲት", "መጋቢት", "ሚያዝያ", 
+    "ግንቦት", "ሰኔ", "ሐምሌ", "ነሐሴ", "ጳጉሜ"
+]
+
 with st.sidebar.form("vehicle_log_form"):
+    selected_month = st.selectbox("ወር ይምረጡ", ethiopian_months)
     driver_name = st.text_input("የአሽከርካሪው ስም")
     plate_number = st.text_input("የመኪና ሰሌዳ (e.g. AA 3-12345)")
     route = st.text_input("የተነሳበትና መድረሻ (e.g. አዲስ አበባ ⟼ ጅማ)")
@@ -74,6 +83,7 @@ with st.sidebar.form("vehicle_log_form"):
     if submit_button:
         if plate_number and driver_name:
             new_row = pd.DataFrame({
+                "ወር": [selected_month],
                 "የአሽከርካሪው ስም": [driver_name],
                 "የመኪና ሰሌዳ": [plate_number],
                 "የተነሳበትና መድረሻ": [route],
@@ -97,11 +107,9 @@ if not df.empty:
 else:
     st.info("እስካሁን የተመዘገበ መረጃ የለም። ከጎን ካለው ፎርም መረጃ ያስገቡ።")
 
-# --- 4. ለእያንዳንዱ መኪና የሪፖርት ማጠቃለያ ---
-st.subheader("📑 ለእያንዳንዱ መኪና የሪፖርት ማጠቃለያ (Summary)")
+# --- 4. ለእያንዳንዱ መኪና እና ወር የሪፖርት ማጠቃለያ ---
+st.subheader("📑 ለእያንዳንዱ መኪና ወርሃዊ ሪፖርት ማጠቃለያ")
 if not df.empty and "የመኪና ሰሌዳ" in df.columns:
-    summary_df = df.groupby("የመኪና ሰሌዳ")[["የተጓዘው ኪ.ሜ", "የጫነው ኩንታል", "የተሰጠ ነዳጅ (ሊትር)"]].sum().reset_index()
+    # በወር እና በመኪና ሰሌዳ ከፋፍሎ ማጠቃለያ ማሳየት
+    summary_df = df.groupby(["ወር", "የመኪና ሰሌዳ"])[["የተጓዘው ኪ.ሜ", "የጫነው ኩንታል", "የተሰጠ ነዳጅ (ሊትር)"]].sum().reset_index()
     st.dataframe(summary_df, use_container_width=True)
-
-        
-        
