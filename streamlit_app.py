@@ -106,3 +106,64 @@ if not df_data.empty:
         file_name="dispatch_report.csv",
         mime="text/csv",
     )
+class FleetManager:
+    def __init__(self):
+        # የመኪና መረጃዎችን ለመያዝ የሚረዳ ዝርዝር (List)
+        self.vehicle_logs = []
+
+    def add_log(self, plate_number, distance, quintal, fuel, month):
+        """አዲስ የጉዞ እና የጭነት መረጃ የሚመዘግብበት ፍንክሽን"""
+        log = {
+            "plate_number": plate_number,
+            "distance": float(distance),
+            "quintal": float(quintal),
+            "fuel": float(fuel),
+            "month": month
+        }
+        self.vehicle_logs.append(log)
+        print(f"✅ የመኪና ቁጥር {plate_number} መረጃ በተሳካ ሁኔታ ተመዝግቧል!")
+
+    def show_total_summary(self):
+        """አጠቃላይ የተጓዘውን ኪሎሜትር እና የጫነውን ኩንታል ያሳያል"""
+        total_km = sum(log["distance"] for log in self.vehicle_logs)
+        total_quintal = sum(log["quintal"] for log in self.vehicle_logs)
+        total_fuel = sum(log["fuel"] for log in self.vehicle_logs)
+
+        print("\n--- 📊 አጠቃላይ የፍሊት ማጠቃለያ ---")
+        print(f"ጠቅላላ የተጓዘው ኪሎሜትር: {total_km} ኪ.ሜ")
+        print(f"ጠቅላላ የተጫነው ጭነት: {total_quintal} ኩንታል")
+        print(f"ጠቅላላ የተጠቀመው ነዳጅ: {total_fuel} ሊትር")
+
+    def generate_monthly_report(self):
+        """እያንዳንዱ መኪና በወር ውስጥ የጠቀመውን ነዳጅ እና የጫነውን ኩንታል በሪፖርት መልክ ያሳያል"""
+        report = {}
+
+        for log in self.vehicle_logs:
+            plate = log["plate_number"]
+            if plate not in report:
+                report[plate] = {"distance": 0.0, "quintal": 0.0, "fuel": 0.0}
+            
+            report[plate]["distance"] += log["distance"]
+            report[plate]["quintal"] += log["quintal"]
+            report[plate]["fuel"] += log["fuel"]
+
+        print("\n--- 📑 ለእያንዳንዱ መኪና ወርሃዊ ሪፖርት ---")
+        print(f"{'የመኪና ሰሌዳ':<15} | {'ጠቅላላ ኪ.ሜ':<12} | {'ጠቅላላ ኩንታል':<15} | {'ጠቅላላ ነዳጅ (ሊትር)':<18}")
+        print("-" * 65)
+        for plate, data in report.items():
+            print(f"{plate:<15} | {data['distance']:<12} | {data['quintal']:<15} | {data['fuel']:<18}")
+
+# --- የኮዱ አጠቃቀም ማሳያ (Test) ---
+if __name__ == "__main__":
+    manager = FleetManager()
+
+    # 1. መረጃዎችን ማስገባት (ምሳሌ)
+    manager.add_log(plate_number="ET-3-12345", distance=450, quintal=120, fuel=60, month="ህዳር")
+    manager.add_log(plate_number="ET-3-12345", distance=300, quintal=90, fuel=40, month="ህዳር")
+    manager.add_log(plate_number="ET-4-98765", distance=600, quintal=150, fuel=85, month="ህዳር")
+
+    # 2. አጠቃላይ ድምር ማሳያ
+    manager.show_total_summary()
+
+    # 3. ወርሃዊ ሪፖርት ማሳያ
+    manager.generate_monthly_report()
